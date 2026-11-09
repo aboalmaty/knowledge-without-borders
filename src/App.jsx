@@ -3,7 +3,7 @@ import DOMPurify from 'dompurify';
 import { LANGUAGES, t } from './i18n';
 import {
   deleteBenefit, deleteCategory, exportBundle, getBenefit, getDashboard,
-  importBundle, isDesktop, listBenefits, listCategories, openExternal,
+  importBundle, isDesktop, listBenefits, listCategories, openMessagingTarget, revealFileInFolder,
   saveBenefit, saveCategory, saveTranslation
 } from './api';
 
@@ -34,6 +34,46 @@ function categoryPath(categories, id) {
   const names = []; let current = categories.find(c => c.id === id);
   while (current) { names.unshift(current.name); current = categories.find(c => c.id === current.parent_id); }
   return names.join(' / ');
+}
+
+function richTextToPlainText(html = '') {
+  const container = document.createElement('div');
+  container.innerHTML = DOMPurify.sanitize(html || '');
+  return String(container.innerText || container.textContent || '').replace(/\u00a0/g, ' ').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function buildShareText(benefits, categories, translate) {
+  return benefits.map((benefit, index) => {
+    const title = String(benefit.title || '').trim();
+    const body = richTextToPlainText(benefit.content_html || benefit.content_text || '');
+    const category = categoryPath(categories, benefit.category_id);
+    const source = [benefit.author, benefit.book, benefit.volume ? `${translate('shareVolume')} ${benefit.volume}` : '', benefit.page ? `${translate('sharePage')} ${benefit.page}` : '']
+      .filter(value => String(value || '').trim()).join(' · ');
+    return [
+      `${index + 1}. ${title || 'Knowledge note'}`,
+      body,
+      category ? `${translate('shareCategory')}: ${category}` : '',
+      source ? `${translate('shareSource')}: ${source}` : '',
+    ].filter(Boolean).join('\n\n');
+  }).join('\n\n────────────────────\n\n');
+}
+
+async function copyTextToClipboard(value) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return true;
+  }
+  const field = document.createElement('textarea');
+  field.value = value;
+  field.setAttribute('readonly', '');
+  field.style.position = 'fixed';
+  field.style.opacity = '0';
+  document.body.appendChild(field);
+  field.select();
+  const copied = document.execCommand('copy');
+  field.remove();
+  if (!copied) throw new Error('clipboard_unavailable');
+  return true;
 }
 function Icon({ name }) {
   const paths = {
@@ -212,12 +252,7 @@ function TranslationForm({ benefit, initial, lang, onCancel, onSave, busy }) {
 }
 
 export default function App() {
-  const [lang,setLang] = useState(() => {
-  const savedLanguage = localStorage.getItem('kwb-lang');
-  return LANGUAGES.some(l => l.code === savedLanguage)
-    ? savedLanguage
-    : 'en';
-});
+  const [lang,setLang] = useState(localStorage.getItem('kwb-lang') || 'ar');
   const [theme,setTheme] = useState(localStorage.getItem('kwb-theme') || 'light');
   const [uiScale,setUiScale] = useState(Number(localStorage.getItem('kwb-ui-scale') || '1'));
   const rtl = ['ar','ur'].includes(lang);
@@ -229,6 +264,7 @@ export default function App() {
   const [selectedIds,setSelectedIds] = useState([]); const [activeBenefit,setActiveBenefit] = useState(null);
   const [modal,setModal] = useState(null); const [busy,setBusy] = useState(false); const [toast,setToast] = useState('');
   const [senderName,setSenderName] = useState(''); const [attributeSender,setAttributeSender] = useState(true);
+  const [shareMode,setShareMode] = useState('file');
   const fileRef = useRef(null);
 
   useEffect(()=>{localStorage.setItem('kwb-lang',lang);document.documentElement.lang=lang;document.documentElement.dir=rtl?'rtl':'ltr';},[lang,rtl]);
@@ -270,9 +306,20 @@ export default function App() {
   };
   const saveDownload = (bundle) => {
     const blob = new Blob([JSON.stringify(bundle,null,2)],{type:'application/vnd.knowledge-without-borders+json;charset=utf-8'});
-    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`KWB-Library-${new Date().toISOString().slice(0,10)}.kwb`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    const filename=`KWB-Library-${new Date().toISOString().slice(0,10)}.kwb`;
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    return filename;
   };
-  const deliverExport = async ids => { const bundle=await exportBundle(ids); if(bundle.filePath){notify(`${tr('exportDone')}: ${bundle.filePath}`);return bundle.filePath;} saveDownload(bundle);notify(tr('exportDone'));return null; };
+  const createShareFile = async ids => {
+    const bundle=await exportBundle(ids);
+    if(bundle.filePath) return {filePath:bundle.filePath,filename:bundle.filePath.split(/[\\/]/).pop()};
+    return {filePath:null,filename:saveDownload(bundle)};
+  };
+  const deliverExport = async ids => {
+    const output=await createShareFile(ids);
+    if(output.filePath){notify(`${tr('exportDone')}: ${output.filePath}`);return output.filePath;}
+    notify(tr('exportDone'));return null;
+  };
   const handleExport = async () => { if (!selectedIds.length) { notify(tr('selectAtLeastOne')); return; } await deliverExport(selectedIds); };
   const handleExportAll = async () => { await deliverExport([]); };
   const handleImportFile = async e => {
@@ -281,10 +328,59 @@ export default function App() {
   };
   const openShareApp = async app => {
     if (!selectedIds.length) { notify(tr('selectAtLeastOne')); return; }
-    const urls={whatsapp:'https://web.whatsapp.com/',telegram:'https://web.telegram.org/',messenger:'https://www.messenger.com/'};
+    const webHome={whatsapp:'https://web.whatsapp.com/',telegram:'https://web.telegram.org/',messenger:'https://www.messenger.com/'};
+    const projectUrl='https://github.com/aboalmaty/knowledge-without-borders';
     setBusy(true);
-    try { await deliverExport(selectedIds); await openExternal(urls[app]); notify(tr('shareReadyAttach')); }
-    catch(e) { notify(String(e)); }
+    try {
+      if (shareMode === 'text') {
+        const records=(await Promise.all(selectedIds.map(id=>getBenefit(id)))).filter(Boolean);
+        if (!records.length) throw new Error('no_selected_benefits');
+        const message=buildShareText(records,categories,tr);
+        let copied=false;
+        try { copied=await copyTextToClipboard(message); } catch { /* Clipboard remains a convenient fallback. */ }
+
+        if (app === 'messenger') {
+          // Messenger has no confirmed, general-purpose Windows desktop URI for prefilled message text.
+          await openMessagingTarget(app, null, webHome[app]);
+          notify(copied ? tr('shareTextCopied') : tr('shareTextCopyFailed'));
+          return;
+        }
+
+        if (message.length <= 3500) {
+          // Prefer the installed Windows clients; use the web share URL only if no URI handler exists.
+          const nativeUri = app === 'whatsapp'
+            ? `whatsapp://send?text=${encodeURIComponent(message)}`
+            : `tg://msg_url?url=${encodeURIComponent(projectUrl)}&text=${encodeURIComponent(message)}`;
+          const webShareUrl = app === 'whatsapp'
+            ? `https://wa.me/?text=${encodeURIComponent(message)}`
+            : `https://t.me/share/url?url=${encodeURIComponent(projectUrl)}&text=${encodeURIComponent(message)}`;
+          await openMessagingTarget(app, nativeUri, webShareUrl);
+          notify(tr('shareTextReady'));
+        } else {
+          if (!copied) throw new Error('clipboard_unavailable');
+          const nativeUri = app === 'whatsapp'
+            ? 'whatsapp://app'
+            : `tg://msg_url?url=${encodeURIComponent(projectUrl)}`;
+          await openMessagingTarget(app, nativeUri, webHome[app]);
+          notify(tr('shareTextCopied'));
+        }
+      } else {
+        const output=await createShareFile(selectedIds);
+        // Open the native client first, then reveal the exported file for manual attachment.
+        // Telegram's share picker provides a convenient chat choice; the file itself is never sent automatically.
+        const nativeUri = app === 'whatsapp'
+          ? 'whatsapp://app'
+          : app === 'telegram'
+            ? `tg://msg_url?url=${encodeURIComponent(projectUrl)}`
+            : null;
+        await openMessagingTarget(app, nativeUri, webHome[app]);
+        if (output.filePath && isDesktop) {
+          try { await revealFileInFolder(output.filePath); }
+          catch { /* The file is still saved; the user can open Downloads manually. */ }
+        }
+        notify(tr('shareReadyAttach'));
+      }
+    } catch(e) { notify(String(e)); }
     finally { setBusy(false); }
   };
   const currentTitle = activeBenefit?.title || '';
@@ -319,7 +415,7 @@ export default function App() {
       </header>
 
       {view==='dashboard' && <div className="page-content">
-        <div className="welcome-row"><div><div className="eyebrow">KNOWLEDGE WITHOUT BORDERS · 0.2</div><h1>{tr('dashboard')}</h1><p>{tr('tagline')}</p></div><div className="welcome-symbol">✧</div></div>
+        <div className="welcome-row"><div><div className="eyebrow">KNOWLEDGE WITHOUT BORDERS · 0.2.2</div><h1>{tr('dashboard')}</h1><p>{tr('tagline')}</p></div><div className="welcome-symbol">✧</div></div>
         <section className="stats-grid">
           {statCards.map(([label,key,tone,icon])=><article className={`stat-card ${tone}`} key={key}><div className="stat-top"><span>{tr(label)}</span><span className="stat-icon"><Icon name={icon}/></span></div><strong>{dashboard.stats?.[key] ?? 0}</strong><div className="stat-foot">{key==='received'?tr('importedCategories'):tr('overview')}</div></article>)}
         </section>
@@ -398,9 +494,19 @@ export default function App() {
             <div className="exchange-selection"><div className="selection-toolbar"><span>{tr('library')} · {exchangeBenefits.length}</span><button className="subtle-link" onClick={toggleAllExchange}>{exchangeBenefits.length && exchangeBenefits.every(b=>selectedIds.includes(b.id))?tr('clearSelection'):tr('selectAll')}</button></div>
               <div className="selection-list">{exchangeBenefits.length?exchangeBenefits.map(b=><label className="selection-item" key={b.id}><input type="checkbox" checked={selectedIds.includes(b.id)} onChange={()=>toggleSelected(b.id)}/><span><strong>{b.title}</strong><small>{categoryPath(categories,b.category_id)||tr('noCategory')}</small></span></label>):<p className="muted">{tr('noBenefits')}</p>}</div>
             </div>
-            <div className="share-hint"><Icon name="file"/><p>{tr('shareHint')}</p></div>
-            <button className="btn btn-primary full-width" onClick={handleExport} disabled={!selectedIds.length}><Icon name="download"/>{tr('exportSelected')}</button>
-            <button className="btn btn-outline full-width export-all-btn" onClick={handleExportAll}><Icon name="book"/>{tr('exportAllLibrary')}</button>
+            <div className="share-mode-picker" role="group" aria-label={tr('shareModeLabel')}>
+              <label className={`share-mode-option ${shareMode==='text'?'selected':''}`}>
+                <input type="radio" name="shareMode" value="text" checked={shareMode==='text'} onChange={()=>setShareMode('text')}/>
+                <span><strong>{tr('shareAsText')}</strong></span>
+              </label>
+              <label className={`share-mode-option ${shareMode==='file'?'selected':''}`}>
+                <input type="radio" name="shareMode" value="file" checked={shareMode==='file'} onChange={()=>setShareMode('file')}/>
+                <span><strong>{tr('shareAsFile')}</strong></span>
+              </label>
+            </div>
+            <div className="share-hint"><Icon name="file"/><p>{tr(shareMode==='text'?'shareTextHelp':'shareFileHelp')}</p></div>
+            <button className="btn btn-primary full-width" onClick={handleExport} disabled={!selectedIds.length||busy}><Icon name="download"/>{tr('exportSelected')}</button>
+            <button className="btn btn-outline full-width export-all-btn" onClick={handleExportAll} disabled={busy}><Icon name="book"/>{tr('exportAllLibrary')}</button>
             <div className="share-channels"><button disabled={!selectedIds.length||busy} onClick={()=>openShareApp('whatsapp')}>WhatsApp <span>↗</span></button><button disabled={!selectedIds.length||busy} onClick={()=>openShareApp('telegram')}>Telegram <span>↗</span></button><button disabled={!selectedIds.length||busy} onClick={()=>openShareApp('messenger')}>Messenger <span>↗</span></button></div>
           </section>
           <section className="panel exchange-panel import-panel"><div className="panel-heading"><div><h2>{tr('importTitle')}</h2><p>{tr('importHelp')}</p></div><span className="exchange-step">02</span></div>

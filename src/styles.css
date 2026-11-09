@@ -81,3 +81,22 @@
 .app-shell[data-theme="mint"] .settings-divider{background:#dcebe2}
 
 @media(max-width:760px){.theme-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.scope-select-row{grid-template-columns:1fr}.scope-select-button{width:100%}.settings-panel{padding:16px}.rich-toolbar{gap:3px}.font-family-select{width:105px}}
+
+
+/* Share format selector */
+.share-mode-picker{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:12px 0 10px}
+.share-mode-option{display:flex;align-items:flex-start;gap:9px;padding:11px 10px;border:1px solid #e2eaf1;border-radius:9px;background:#fff;cursor:pointer;min-width:0}
+.share-mode-option.selected{border-color:#6da3c8;background:#f1f7fb;box-shadow:inset 0 0 0 1px #6da3c822}
+.share-mode-option input{margin:3px 0 0;accent-color:#286b9b;flex:0 0 auto}
+.share-mode-option>span{display:grid;gap:5px;min-width:0}
+.share-mode-option strong{font-size:10px;color:#35546e;line-height:1.4}
+.share-mode-option small{font-size:8px;line-height:1.6;color:#8295a7}
+.app-shell[data-theme="dark"] .share-mode-option{background:#223445;border-color:#3a5062}
+.app-shell[data-theme="dark"] .share-mode-option.selected{background:#29465e;border-color:#6da3c8}
+.app-shell[data-theme="dark"] .share-mode-option strong{color:#e1edf5}
+.app-shell[data-theme="dark"] .share-mode-option small{color:#a7bac9}
+.app-shell[data-theme="sepia"] .share-mode-option{background:#fffdf7;border-color:#e3d7c3}
+.app-shell[data-theme="sepia"] .share-mode-option.selected{background:#f8f0e2;border-color:#b99363}
+.app-shell[data-theme="mint"] .share-mode-option{background:#fbfffc;border-color:#d8e8df}
+.app-shell[data-theme="mint"] .share-mode-option.selected{background:#eff9f2;border-color:#75b59a}
+@media(max-width:650px){.share-mode-picker{grid-template-columns:1fr}}

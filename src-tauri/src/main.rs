@@ -3,6 +3,8 @@ mod db;
 
 use db::{AppState, SaveBenefitInput, SaveCategoryInput, SaveTranslationInput};
 use std::path::PathBuf;
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+use std::process::Command;
 use tauri::{Manager, State};
 use chrono::Local;
 use uuid::Uuid;
@@ -85,6 +87,65 @@ fn open_external(url: String) -> Result<(), String> {
     open::that(url).map_err(|e| e.to_string())
 }
 
+/// Open the installed desktop client through its registered URI protocol.
+/// Fall back to the service's HTTPS page only when the protocol handler is unavailable.
+#[tauri::command]
+fn open_messaging_target(service: String, native_uri: Option<String>, web_url: String) -> Result<String, String> {
+    let (native_prefix, allowed_web_prefixes): (Option<&str>, &[&str]) = match service.as_str() {
+        "whatsapp" => (Some("whatsapp://"), &["https://wa.me/", "https://web.whatsapp.com/"]),
+        "telegram" => (Some("tg://"), &["https://t.me/", "https://web.telegram.org/"]),
+        "messenger" => (None, &["https://www.messenger.com/"]),
+        _ => return Err("Unsupported messaging service".into()),
+    };
+
+    if let (Some(prefix), Some(uri)) = (native_prefix, native_uri.as_deref()) {
+        if uri.starts_with(prefix) && uri.len() <= 16_384 {
+            if open::that(uri).is_ok() {
+                return Ok("native".into());
+            }
+        }
+    }
+
+    if !allowed_web_prefixes.iter().any(|prefix| web_url.starts_with(prefix)) {
+        return Err("The messaging fallback URL is not allowed".into());
+    }
+    open::that(web_url).map_err(|e| e.to_string())?;
+    Ok("web".into())
+}
+
+#[tauri::command]
+fn reveal_file_in_folder(file_path: String) -> Result<(), String> {
+    let path = PathBuf::from(file_path);
+    if !path.exists() {
+        return Err("The exported file could not be found".into());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer.exe")
+            .arg(format!("/select,{}", path.display()))
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg("-R")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        let parent = path.parent().ok_or_else(|| "The exported file has no parent folder".to_string())?;
+        open::that(parent).map_err(|e| e.to_string())
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
@@ -108,7 +169,9 @@ fn main() {
             export_bundle,
             export_bundle_file,
             import_bundle,
-            open_external
+            open_external,
+            open_messaging_target,
+            reveal_file_in_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running Knowledge Without Borders");

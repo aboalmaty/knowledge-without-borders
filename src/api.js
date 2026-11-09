@@ -117,3 +117,13 @@ export async function openExternal(url) {
   if (isDesktop) return invoke('open_external', { url });
   window.open(url, '_blank', 'noopener,noreferrer');
 }
+export async function openMessagingTarget(service, nativeUri, webUrl) {
+  if (isDesktop) return invoke('open_messaging_target', { service, nativeUri, webUrl });
+  window.open(nativeUri || webUrl, '_blank', 'noopener,noreferrer');
+  return nativeUri ? 'native' : 'web';
+}
+export async function revealFileInFolder(filePath) {
+  if (!filePath) throw new Error('file_path_missing');
+  if (isDesktop) return invoke('reveal_file_in_folder', { filePath });
+  return false;
+}

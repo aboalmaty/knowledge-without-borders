@@ -4,7 +4,7 @@
 
 Knowledge Without Borders (KWB) is a local-first, multilingual Windows desktop application for collecting, organizing, searching, translating, and exchanging research insights and other pieces of knowledge.
 
-**Current release: 0.2.1** · **Platform: Windows x64**
+**Current release: 0.2.3** · **Platform: Windows x64**
 
 [Download the latest release](https://github.com/aboalmaty/knowledge-without-borders/releases/latest) · [Arabic guide](README_AR.md) · [Changelog](CHANGELOG.md)
 
@@ -14,7 +14,7 @@ KWB treats each research insight—called a *benefit* in the application—as a 
 
 The project grew out of an earlier research-notes application created in 2007 and is being rebuilt as a modern, multilingual desktop application.
 
-## Features available in 0.2.1
+## Features available in 0.2.3
 
 ### Build and organize a knowledge library
 
@@ -40,7 +40,9 @@ The project grew out of an earlier research-notes application created in 2007 an
 - Select all entries in a chosen main or subcategory in one step; selecting a main category includes its descendants.
 - Export selected entries and their required category structure and translation records to a `.kwb` exchange file.
 - Import `.kwb` files while preserving entry identifiers and available source/attribution information.
-- Open WhatsApp Web, Telegram Web, or Messenger from the exchange workflow. The user attaches and sends the exported `.kwb` file manually; KWB does not send it automatically.
+- Choose between sharing selected benefits as text or exporting them as an importable `.kwb` library file.
+- KWB first tries the installed WhatsApp or Telegram desktop app through its registered URI protocol; it falls back to the web version only when that handler is unavailable. Messenger continues to use the web version with clipboard-assisted text sharing.
+- For `.kwb` sharing, KWB attempts to open the installed WhatsApp or Telegram app, then selects the exported file in Downloads for manual attachment. The user confirms the recipient and sends the file; KWB never uploads or sends it automatically.
 
 ### Local-first by design
 

@@ -56,3 +56,24 @@
 - [ ] Select a subcategory and repeat; confirm only that subcategory subtree is added.
 - [ ] Repeat for a second category and ensure earlier selections remain selected.
 - [ ] Click WhatsApp/Telegram/Messenger with selected benefits; confirm a KWB file is created before the messaging destination opens, then manually attach it.
+
+
+## Sharing modes (0.2.2)
+
+- [ ] Select one benefit and share as text through WhatsApp; confirm title and body are prefilled.
+- [ ] Select multiple benefits and share as text through Telegram; confirm all selected entries are present in the share composer.
+- [ ] Share as text through Messenger; confirm the selected text is copied and can be pasted into a conversation.
+- [ ] Select enough benefits to exceed the prefilled-link size threshold; confirm the full text is copied and can be pasted manually.
+- [ ] Share as a KWB file; confirm the file is created in Downloads and Explorer reveals/selects the generated file before the messaging site opens.
+- [ ] Attach the KWB file manually, send it, and import it on another KWB installation; verify titles, content, categories, and translations.
+- [ ] Repeat the checks in Arabic, English, Spanish, French, Chinese, and Urdu, and in all four themes.
+
+
+## 0.2.3 — Native messaging launch checks
+
+- [ ] With WhatsApp Desktop installed and its protocol registered, text sharing opens WhatsApp Desktop through `whatsapp://send`, not a new WhatsApp Web tab.
+- [ ] With Telegram Desktop installed and its protocol registered, text sharing opens Telegram Desktop through `tg://msg_url`.
+- [ ] When a desktop protocol handler is unavailable, the corresponding HTTPS share page opens as a fallback.
+- [ ] File sharing attempts to open the desktop messaging client, then reveals the generated `.kwb` file for manual attachment.
+- [ ] Messenger continues to use its web destination and clipboard-assisted text sharing.
+- [ ] No message or file is sent automatically; the user reviews the content, selects the recipient, attaches files, and presses Send.
