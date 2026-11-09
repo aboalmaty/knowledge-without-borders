@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.1] - 2026-11-09
+
+### Security and Maintenance
+- Updated Vite to 8.3.6.
+- Updated @vitejs/plugin-react to 6.2.1.
+- Resolved vulnerabilities reported by `npm audit`.
+- Updated build dependencies and applied maintenance improvements.
+- Verified the production build and Windows installers.
+
+---
+
 ## 0.2.0 — Editor, themes and sharing improvements
 
 - Added font family, font size, text color and text highlight controls to the rich-text editor.
