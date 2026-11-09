@@ -41,8 +41,7 @@ The project grew out of an earlier research-notes application created in 2007 an
 - Export selected entries and their required category structure and translation records to a `.kwb` exchange file.
 - Import `.kwb` files while preserving entry identifiers and available source/attribution information.
 - Choose between sharing selected benefits as text or exporting them as an importable `.kwb` library file.
-- KWB first tries the installed WhatsApp or Telegram desktop app through its registered URI protocol; it falls back to the web version only when that handler is unavailable. Messenger continues to use the web version with clipboard-assisted text sharing.
-- For `.kwb` sharing, KWB attempts to open the installed WhatsApp or Telegram app, then selects the exported file in Downloads for manual attachment. The user confirms the recipient and sends the file; KWB never uploads or sends it automatically.
+-  KWB attempts to launch the installed WhatsApp or Telegram desktop app through its registered URI protocol. If Windows cannot open the URI, KWB falls back to the web version. Messenger continues to use the web version with clipboard-assisted text sharing.- For `.kwb` sharing, KWB attempts to open the installed WhatsApp or Telegram app, then selects the exported file in Downloads for manual attachment. The user confirms the recipient and sends the file; KWB never uploads or sends it automatically.
 
 ### Local-first by design
 
